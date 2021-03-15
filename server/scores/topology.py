@@ -1,7 +1,7 @@
 import pandas as pd
 
 from server.scores.common import reverse_alignment_series, add_alignment_image
-from server.sources.network import VirusHostNetwork
+from ppi_sources.network import VirusHostNetwork
 
 
 def add_is_edge_column(image, net_igraph):

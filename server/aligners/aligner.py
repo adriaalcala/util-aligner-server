@@ -20,23 +20,14 @@ class Aligner(object):
     @property
     def cmd(self): return None
 
+
     def write_files(self, run_dir_path):
         pass
+
 
     def import_alignment(self, net1, net2, execution_dir, file_name=None):
         pass
 
-    def _gen_run_dir(run_dir_base_path, max_trials):
-        for trial in range(max_trials):
-            try:
-                run_id = uuid.uuid1()
-                run_dir_path = path.join(run_dir_base_path, self.name, str(run_id))
-                os.makedirs(run_dir_path)
-                return run_dir_path
-            except OSError:
-                pass
-
-        return None
 
     def _setup_run_dir(self, run_dir_path, template_dir_base_path, *args):
         template_dir_path = path.join(template_dir_base_path, 'template-' + self.name)
@@ -50,6 +41,7 @@ class Aligner(object):
                 shutil.copy(template_file_path, run_dir_path)
 
         self.write_files(run_dir_path, *args)
+
 
     def run(self, net1, net2, *args, run_dir_base_path='run', template_dir_base_path='template', max_trials=50):
         os.makedirs(run_dir_base_path, exist_ok=True)
@@ -69,6 +61,8 @@ class Aligner(object):
 
             result = {'command': self.cmd}
 
+            timeout_seconds = 60 * 60 * 24 # 1 day
+
             start_time = time.time()
 
             try:
@@ -78,9 +72,12 @@ class Aligner(object):
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     cwd=run_dir_path,
+                    timeout=timeout_seconds,
                     check=True)
 
             except subprocess.CalledProcessError as cpe:
+                end_time = time.time()
+
                 self.logger.warning(f'run_{self.name} @ {run_dir_path}: process exited with non-zero exit code {cpe.returncode}: {self.cmd}')
 
                 output = cpe.output.decode('utf-8')
@@ -90,6 +87,19 @@ class Aligner(object):
                 result['ok'] = False
                 result['output'] = output
                 result['exit_code'] = cpe.returncode
+                result['timed_out'] = False
+
+            except subprocess.TimeoutExpired as texp:
+                end_time = time.time()
+
+                self.logger.warning(f'run_{self.name} @ {run_dir_path}: process timed out: {self.cmd}')
+
+                output = texp.output.decode('utf-8')
+
+                result['ok'] = False
+                result['output'] = output
+                result['exit_code'] = None
+                result['timed_out'] = True
 
             else:
                 end_time = time.time()
@@ -99,8 +109,8 @@ class Aligner(object):
                 result['ok'] = True
                 result['output'] = completed_process.stdout.decode('utf-8')
                 result['exit_code'] = completed_process.returncode
+                result['timed_out'] = False
 
-                result['run_time'] = end_time - start_time
                 header, alignment = self.import_alignment(net1, net2, run_dir_path)
 
                 columns = [f'net1_{header[0]}', f'net2_{header[1]}']
@@ -110,4 +120,5 @@ class Aligner(object):
 
                 result['alignment'] = alignment_df
 
+            result['run_time'] = end_time - start_time
             return result

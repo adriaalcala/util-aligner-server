@@ -29,7 +29,7 @@ def compute_fc(alignment, ontology_mapping, dissim):
 
     results = []
 
-    for p1_name, p2_name in alignment.itertuples(name=True):
+    for p1_name, p2_name in alignment.itertuples(name=None, index=True):
         gos1 = frozenset(ontology_mapping.get(p1_name, []))
         gos2 = frozenset(ontology_mapping.get(p2_name, []))
 
@@ -49,15 +49,18 @@ def compute_bitscore_fc(alignment, bitscore_matrix):
     bitscore_df = bitscore_matrix.to_dataframe()
 
     alignment_df = alignment.reset_index()
-    alignment_df.columns = bitscore_df.index.names
 
-    relevant_bitscores = bitscore_df.join(alignment_df.set_index(bitscore_df.index.names), how='inner')
+    col_names = list(bitscore_df.columns[:2])
+    alignment_df.columns = col_names
+    bitscore_df = bitscore_df.set_index(col_names)
+
+    relevant_bitscores = bitscore_df.join(alignment_df.set_index(col_names), how='inner')
 
     return float(relevant_bitscores.bitscore.sum() / bitscore_df.bitscore.max()) \
         if not relevant_bitscores.empty else -1
 
 
-jaccard_dissim = JaccardSim().compare
+jaccard_sim = JaccardSim().compare
 hrss_bma_sim = init_default_hrss().compare
 
 def compute_fc_scores(net1, net2, alignment, bitscore_matrix, ontology_mapping):
@@ -66,7 +69,7 @@ def compute_fc_scores(net1, net2, alignment, bitscore_matrix, ontology_mapping):
     fc_data = {'fc_score_bitscore': bitscore_fc}
 
     if ontology_mapping:
-        fc_values_jaccard,  fc_jaccard  = compute_fc(alignment, ontology_mapping, jaccard_dissim)
+        fc_values_jaccard,  fc_jaccard  = compute_fc(alignment, ontology_mapping, jaccard_sim)
         fc_values_hrss_bma, fc_hrss_bma = compute_fc(alignment, ontology_mapping, hrss_bma_sim)
 
         ann_freqs_net1, no_go_prots_net1 = count_annotations(net1, ontology_mapping)

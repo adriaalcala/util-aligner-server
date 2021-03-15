@@ -5,4 +5,4 @@ from config import settings
 
 
 app = Celery('util_aligner')
-app.config_from_object(settings, namespace='CELERY')
+app.config_from_object(settings.celery)

@@ -13,9 +13,9 @@ from config import config
 from mongo import retrieve_file, retrieve_alignment_result, insert_alignment, insert_comparison
 from server_queue import app
 from scores import compute_scores, split_score_data_as_tsvs
-from sources.isobaselocal import IsobaseLocal
-from sources.stringdb import StringDB
-from sources.stringdbviruslocal import StringDBVirusLocal
+from ppi_sources.isobase.local import isobase_local_source
+from ppi_sources.stringdb.api import stringdb_api_source
+from ppi_sources.stringdbvirus.local import stringdbvirus_local_source
 from util import all_equal, write_tsv_to_string
 from aligners import load_aligner_classes
 
@@ -27,27 +27,21 @@ ALIGNERS_DISPATCHER = load_aligner_classes('aligners.json')
 
 def connect_to_db(db_name):
     if db_name == 'isobase':
-        return IsobaseLocal('/opt/local-db/isobase')
+        return isobase_local_source('/opt/local-db/isobase')
     elif db_name == 'stringdb':
-        return StringDB()
+        return stringdb_api_source(config['SOURCES_API_URL'])
     elif db_name == 'stringdbvirus':
-        return StringDBVirusLocal('/opt/local-db/stringdb-virus')
+        return stringdbvirus_local_source('/opt/local-db/stringdb-virus-gv')
     else:
         raise ValueError(f'database not supported: {db_name}')
 
 
 async def db_get_network(db, net_desc):
-    if isinstance(db, IsobaseLocal):
+    if net_desc.get('edges', None) is None:
         return await db.get_network(net_desc)
+    else:
+        return await db.build_custom_network(net_desc)
 
-    elif isinstance(db, StringDB):
-        if net_desc['species_id'] >= 0:
-            return await db.get_network(net_desc['species_id'], score_thresholds=net_desc['score_thresholds'])
-        else:
-            return await db.build_custom_network(net_desc['edges'])
-
-    elif isinstance(db, StringDBVirusLocal):
-        return await db.get_network(net_desc['host_id'], net_desc['virus_id'])
 
 def networks_summary(db_name, net1_desc, net1, net2_desc, net2):
     return {

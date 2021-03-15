@@ -1,129 +1,85 @@
 version: '3'
 
 services:
-    server-aligner:
-      build:
-        context: .
-        dockerfile: ./docker/Dockerfile
-      depends_on:
-        - rabbitmq
-        - mysql
-        - mongo
-      command:
-        - celery
-        - -A
-        - server_queue
-        - worker
-        - -Q
-        - server_aligner
-        - -l
-        - info
-        - -c
-        - "8"
-      volumes:
-        - .:/opt/:rw
-      environment:
-        - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-        - CELERY_TASK_DEFAULT_QUEUE=server_aligner
-        - CELERY_TASK_TIME_LIMIT=
-        - FINISHED_ALIGNMENT_URL=${FINISHED_ALIGNMENT_URL}
-        - FINISHED_COMPARISON_URL=${FINISHED_COMPARISON_URL}
-      networks:
-        server-net:
-          ipv4_address: 172.20.0.2
-          aliases: [server]
-        stringdb-net:
-        geneontology-net:
+  server-aligner:
+    image: bielr/util-aligner-server:0.2
+    build:
+      context: ./docker
+      dockerfile: ./Dockerfile
+    depends_on:
+      - rabbitmq
+      - mongo
+    command:
+      - celery
+      - -A
+      - server_queue
+      - worker
+      - -Q
+      - server_aligner
+      - -l
+      - info
+      - -c
+      - "${SERVER_ALIGNER_CONCURRENCY:?SERVER_ALIGNER_CONCURRENCY not set in .env}"
+    volumes:
+      - .:/opt/:rw
+    environment:
+      - CELERY_TASK_DEFAULT_QUEUE=server_aligner
+    networks:
+      server-net:
+        ipv4_address: 172.20.0.2
+        aliases: [server-aligner]
 
-    server-comparer:
-      build:
-        context: .
-        dockerfile: ./docker/Dockerfile
-      depends_on:
-        - rabbitmq
-        - mysql
-        - mongo
-      command:
-        - celery
-        - -A
-        - server_queue
-        - worker
-        - -Q
-        - server_comparer
-        - -l
-        - info
-        - -c
-        - "1"
-      volumes:
-        - .:/opt/:rw
-      environment:
-        - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-        - CELERY_TASK_DEFAULT_QUEUE=server_comparer
-        - CELERY_TASK_TIME_LIMIT=
-        - FINISHED_ALIGNMENT_URL=${FINISHED_ALIGNMENT_URL}
-        - FINISHED_COMPARISON_URL=${FINISHED_COMPARISON_URL}
-      networks:
-        server-net:
-          ipv4_address: 172.20.0.3
-          aliases: [server]
-        stringdb-net:
-        geneontology-net:
+  server-comparer:
+    image: bielr/util-aligner-server:0.2
+    # build:
+    #   context: ./docker
+    #   dockerfile: ./Dockerfile
+    depends_on:
+      - rabbitmq
+      - mongo
+    command:
+      - celery
+      - -A
+      - server_queue
+      - worker
+      - -Q
+      - server_comparer
+      - -l
+      - info
+    volumes:
+      - .:/opt/:rw
+    environment:
+      - CELERY_TASK_DEFAULT_QUEUE=server_comparer
+    networks:
+      server-net:
+        ipv4_address: 172.20.0.3
+        aliases: [server-comparer]
 
-    mysql:
-      image: mysql:5.7.17
-      ports:
-        - 3306:3306
-      command:
-        - --character-set-server=utf8
-        - --collation-server=utf8_unicode_ci
-        - --skip-character-set-client-handshake
-        - --bind-address=0.0.0.0
-      volumes:
-        - mysql-data:/var/lib/mysql
-        - ./dumps:/opt/dumps
-        - ./mysql-initdb.d:/docker-entrypoint-initdb.d:ro
-      environment:
-        - MYSQL_ROOT_PASSWORD=root
-        - MYSQL_DATABASE=protein_db
-      networks:
-        server-net:
-          ipv4_address: 172.20.0.4
-          aliases: [mysql]
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    networks:
+      server-net:
+        ipv4_address: 172.20.0.5
+        aliases: [rabbitmq]
 
-    rabbitmq:
-      image: rabbitmq:3-management-alpine
-      ports:
-        - 15672:15672
-        - 5672:5672
-      environment:
-        - RABBITMQ_DEFAULT_USER
-        - RABBITMQ_DEFAULT_PASS
-      networks:
-        server-net:
-          ipv4_address: 172.20.0.5
-          aliases: [rabbitmq]
-
-    mongo:
-      image: mongo:latest
-      command:
-        - mongod
-        - --storageEngine=mmapv1
-        - --auth
-        - --bind_ip_all
-      security_opt:
-        - seccomp:seccomp_numa.json
-      ports:
-        - 27017:27017
-      volumes:
-        - mongo-data:/data/db
-        - ./mongo-initdb.d:/docker-entrypoint-initdb.d:ro
-      networks:
-        server-net:
-          ipv4_address: 172.20.0.6
-          aliases: [mongo]
+  mongo:
+    image: mongo:latest
+    command:
+      - mongod
+      - --storageEngine=mmapv1
+      - --auth
+      - --bind_ip_all
+    security_opt:
+      - seccomp:seccomp_numa.json
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo-initdb.d:/docker-entrypoint-initdb.d:ro
+    networks:
+      server-net:
+        ipv4_address: 172.20.0.6
+        aliases: [mongo]
 
 volumes:
-  mysql-data:
   mongo-data:
 
 networks:
@@ -131,7 +87,3 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/24
-  stringdb-net:
-    external: true
-  geneontology-net:
-    external: true

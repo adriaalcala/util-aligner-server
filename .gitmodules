@@ -7,3 +7,6 @@
 [submodule "libs/stringdb-tools"]
 	path = libs/stringdb-tools
 	url = https://github.com/bielr/stringdb-tools.git
+[submodule "libs/ppi-sources"]
+	path = libs/ppi-sources
+	url = https://github.com/biocom-uib/ppi-sources

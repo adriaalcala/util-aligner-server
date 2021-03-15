@@ -36,7 +36,7 @@ class Spinal(Aligner):
 
         self.logger.debug(f'run_{self.name} @ {run_dir_path}: writing blast-net1-net2.csv')
         blast_path = path.join(run_dir_path, 'blast-net1-net2.csv')
-        blast_net1_net2.write_tricol(blast_path, by='index', delimiter=' ')
+        blast_net1_net2.write_tricol(blast_path, by='index', sep=' ')
 
     def iter_alignment_ids(self, execution_dir, file_name='alignment-net1-net2.csv'):
         alignment_path = path.join(execution_dir, file_name)

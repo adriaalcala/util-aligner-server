@@ -1,0 +1,24 @@
+version: '3'
+
+services:
+  server-aligner:
+    env_file:
+      - dev.env
+    networks:
+      - util-aligner-net
+
+  server-comparer:
+    env_file:
+      - dev.env
+    networks:
+      - util-aligner-net
+
+  rabbitmq:
+    env_file:
+      - dev.env
+    networks:
+      - util-aligner-net
+
+networks:
+  util-aligner-net:
+    external: true
